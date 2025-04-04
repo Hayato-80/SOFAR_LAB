@@ -7,9 +7,13 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <turtlesim/msg/pose.hpp>
 #include "tf2/LinearMath/Quaternion.h"
-#include "tf2_ros/static_transform_broadcaster.h"
-// #include <my_msgs/msg/my_output_msg.hpp>
 #include <algorithm>
+
+#include "tf2_ros/static_transform_broadcaster.h"
+#include "tf2_ros/transform_broadcaster.h"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+// #include <my_msgs/msg/my_output_msg.hpp>
+
 
 using namespace std::chrono_literals;
 
@@ -21,15 +25,15 @@ class MyNode : public rclcpp::Node
 public:
     MyNode(rclcpp::NodeOptions options) : Node("my_node", options)
     {
-        // init whatever is needed for your node
-        
         // init subscribers
         my_subscription = this->create_subscription<turtlesim::msg::Pose>(
       		"/turtle1/pose", 10, std::bind(&MyNode::my_callback, this, std::placeholders::_1));
             
         // init publishers
         my_publisher = create_publisher<nav_msgs::msg::Odometry>("/odom", 10);   // topic + QoS
-      
+        tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(this);
+        static_tf_broadcaster = std::make_unique<tf2_ros::StaticTransformBroadcaster>(this);
+
         // init timer - the function will be called with the given rate
         // publish_timer = create_wall_timer(100ms,    // rate
         //                                   [&](){callback_time();});
@@ -38,7 +42,8 @@ public:
 private:
     // declare any subscriber / publisher / timer
     rclcpp::Subscription<turtlesim::msg::Pose>::SharedPtr my_subscription;
-    
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
+    std::unique_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster;
     // MyInputMsg input_msg;
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr my_publisher;
@@ -67,6 +72,60 @@ private:
         odom_msg.twist.twist.angular.z = msg->angular_velocity;
 
         my_publisher->publish(odom_msg);
+        geometry_msgs::msg::TransformStamped t;
+
+        // Read message content and assign it to
+        // corresponding tf variables
+        t.header.stamp = this->get_clock()->now();
+        t.header.frame_id = "odom";
+        t.child_frame_id = "base_link";
+
+        // Turtle only exists in 2D, thus we get x and y translation
+        // coordinates from the message and set the z coordinate to 0
+        t.transform.translation.x = msg->x;
+        t.transform.translation.y = msg->y;
+        t.transform.translation.z = 0.0;
+
+        // For the same reason, turtle can only rotate around one axis
+        // and this why we set rotation in x and y to 0 and obtain
+        // rotation in z axis from the message
+        // tf2::Quaternion q;
+        // q.setRPY(0, 0, msg->theta);
+        t.transform.rotation.x = q.x();
+        t.transform.rotation.y = q.y();
+        t.transform.rotation.z = q.z();
+        t.transform.rotation.w = q.w();
+
+        // Send the transformation
+        tf_broadcaster->sendTransform(t);
+
+        geometry_msgs::msg::TransformStamped st;
+
+        // Read message content and assign it to
+        // corresponding tf variables
+        st.header.stamp = this->get_clock()->now();
+        st.header.frame_id = "map";
+        st.child_frame_id = "odom";
+
+        // Turtle only exists in 2D, thus we get x and y translation
+        // coordinates from the message and set the z coordinate to 0
+        st.transform.translation.x = -5.5;
+        st.transform.translation.y = -5.5;
+        st.transform.translation.z = 0.0;
+
+        // For the same reason, turtle can only rotate around one axis
+        // and this why we set rotation in x and y to 0 and obtain
+        // rotation in z axis from the message
+        // tf2::Quaternion q;
+        // q.setRPY(0, 0, msg->theta);
+        // st.transform.rotation.x = q.x();
+        // st.transform.rotation.y = q.y();
+        // st.transform.rotation.z = q.z();
+        // st.transform.rotation.w = q.w();
+
+        // Send the transformation
+        static_tf_broadcaster->sendTransform(st);
+
     }
 };
 

@@ -32,6 +32,15 @@ def generate_launch_description():
             output='screen',
             parameters=[{'use_sim_time': True}],
             arguments=['-d', rviz_config_file]
-        )
+        ),
+        # Node(
+        #     package='tf2_ros',
+        #     executable='static_transform_publisher',
+        #     name='static_tf',
+        #     output='screen',
+        #     parameters=[{'use_sim_time': True}],
+        #     arguments=['5.5', '5.5', '0', '0', '0', '0', 'odom', 'map']
+        # )
+
     ])
 
