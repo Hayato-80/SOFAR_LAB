@@ -17,17 +17,17 @@
 
 using namespace std::chrono_literals;
 
-namespace my_pkg
+namespace sofar
 {
 
-class MyNode : public rclcpp::Node
+class LabNode : public rclcpp::Node
 {
 public:
-    MyNode(rclcpp::NodeOptions options) : Node("my_node", options)
+    LabNode(rclcpp::NodeOptions options) : Node("lab_node", options)
     {
         // init subscribers
         my_subscription = this->create_subscription<turtlesim::msg::Pose>(
-      		"/turtle1/pose", 10, std::bind(&MyNode::my_callback, this, std::placeholders::_1));
+      		"/turtle1/pose", 10, std::bind(&LabNode::my_callback, this, std::placeholders::_1));
             
         // init publishers
         my_publisher = create_publisher<nav_msgs::msg::Odometry>("/odom", 10);   // topic + QoS
@@ -37,7 +37,7 @@ public:
         // init timer - the function will be called with the given rate
         // publish_timer = create_wall_timer(100ms,    // rate
         //                                   [&](){callback_time();});
-    }   
+    }
   
 private:
     // declare any subscriber / publisher / timer
@@ -135,7 +135,7 @@ int main(int argc, char** argv)
 {
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions options;
-  rclcpp::spin(std::make_shared<my_pkg::MyNode>(options));
+  rclcpp::spin(std::make_shared<sofar::LabNode>(options));
   rclcpp::shutdown();
   return 0;
 }

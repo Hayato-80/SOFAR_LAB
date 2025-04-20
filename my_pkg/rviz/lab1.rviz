@@ -67,7 +67,7 @@ Visualization Manager:
           Value: true
         Value: true
       Enabled: true
-      Keep: 100
+      Keep: 1
       Name: Odometry
       Position Tolerance: 0.10000000149011612
       Shape:
@@ -105,11 +105,10 @@ Visualization Manager:
       Show Axes: true
       Show Names: false
       Tree:
-        odom:
-          base_link:
-            {}
-          map:
-            {}
+        map:
+          odom:
+            base_link:
+              {}
       Update Interval: 0
       Value: true
   Enabled: true
@@ -158,25 +157,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 12.349000930786133
+      Distance: 13.628973960876465
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.8652734160423279
-        Y: -0.08848734200000763
-        Z: 0.3673943281173706
+        X: -0.6261618137359619
+        Y: -0.17511354386806488
+        Z: -0.510823130607605
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.0703980922698975
+      Pitch: 1.5647963285446167
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.6203978061676025
+      Yaw: 4.715402603149414
     Saved: ~
 Window Geometry:
   Displays:
@@ -194,5 +193,5 @@ Window Geometry:
   Views:
     collapsed: true
   Width: 1200
-  X: 190
-  Y: -3
+  X: 749
+  Y: 68

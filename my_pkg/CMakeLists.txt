@@ -12,7 +12,13 @@ find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(my_interfaces REQUIRED)
+# find_package(rosidl_default_generators REQUIRED)
+# find_package(rosidl_default_runtime REQUIRED)
+
 ament_auto_find_build_dependencies()
+
 
 install(
   DIRECTORY 
@@ -25,7 +31,14 @@ install(
 
 # install(PROGRAMS script/my_node_py.py
 #   DESTINATION lib/${PROJECT_NAME})
-ament_auto_add_executable(my_node src/my_node.cpp)
+ament_auto_add_executable(lab_node src/lab_node.cpp)
+ament_auto_add_executable(lab2_node src/estimate.cpp)
+ament_auto_add_executable(pose_service src/get_turtle_pose.cpp)
+ament_target_dependencies(pose_service rclcpp my_interfaces)
+
+install(TARGETS
+  pose_service
+  DESTINATION lib/${PROJECT_NAME})
 # ament_target_dependencies(
 #     # turtle_tf2_broadcaster
 #     geometry_msgs
@@ -38,5 +51,6 @@ ament_auto_add_executable(my_node src/my_node.cpp)
 #     tf2_ros
 # )
 
+# ament_auto_add_executable(estimation_node src/estimate.cpp)
 
 ament_auto_package()
