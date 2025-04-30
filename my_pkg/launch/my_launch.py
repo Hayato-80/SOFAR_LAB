@@ -11,8 +11,8 @@ def generate_launch_description():
     rviz_config_file = PathJoinSubstitution(
             [FindPackageShare(packages_name), 'rviz', rviz_file]
     )
-    v_param = LaunchConfiguration('v', default=0.0)
-    delta_t_param = LaunchConfiguration('delta_t', default=0.0)
+    v_param = LaunchConfiguration('v', default=0.3)
+    delta_t_param = LaunchConfiguration('delta_t', default=0.1)
 
     # param_file = PathJoinSubstitution([FindPackageShare(FindPackageShare(packages_name)), 'config', 'turtlesim.yaml'])
     return LaunchDescription([
@@ -51,15 +51,15 @@ def generate_launch_description():
         ),
         # Node(
         #     package='my_pkg',
-        #     executable='server_node',
-        #     name='server_node',
+        #     executable='pose_service',
+        #     name='pose_service',
         #     output='screen',
         # ),
-        # ExecuteProcess(
-        #     cmd=['ros2', 'service', 'call', '/spawn', 'turtlesim/srv/Spawn', 
-        #          '{"x": 8.0, "y": 8.0, "theta": 0.0, "name": "robot2"}'],
-        #     output='screen',
-        # ),
+        ExecuteProcess(
+            cmd=['ros2', 'service', 'call', '/spawn', 'turtlesim/srv/Spawn', 
+                 '{"x": 8.0, "y": 8.0, "theta": 0.0, "name": "turtle2"}'],
+            output='screen',
+        ),
         # Node(
         #     package='tf2_ros',
         #     executable='static_transform_publisher',

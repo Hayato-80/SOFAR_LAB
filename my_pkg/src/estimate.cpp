@@ -15,10 +15,12 @@
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 #include "tf2/LinearMath/Quaternion.h"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
+#include <my_interfaces/srv/get_turtle_pose.hpp>
 
 // #include <my_msgs/msg/my_output_msg.hpp>
 
@@ -35,7 +37,7 @@ public:
     {
 
         odom_subscription = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/odom", 10, std::bind(&lab2Node::odom_callback, this, std::placeholders::_1));
+            "/odom", 10, std::bind(&lab2Node::compute_and_publish_cmd_vel, this, std::placeholders::_1));
         
         goal_subscription = this->create_subscription<geometry_msgs::msg::PoseStamped>(
             "/goal_pose", 10, std::bind(&lab2Node::goal_callback, this, std::placeholders::_1));
@@ -44,6 +46,8 @@ public:
 
         this->declare_parameter<float>("v", 0.1);
         this->declare_parameter<float>("delta_t", 0.1);
+
+        turtle_pose_client_ = this->create_client<my_interfaces::srv::GetTurtlePose>("get_turtle_pose");
         
     }
   
@@ -55,34 +59,37 @@ private:
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_publisher;
     geometry_msgs::msg::Pose current_pose;
     geometry_msgs::msg::Pose goal_pose;
+    float x_other;
+    float y_other;
 
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
 
-    void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
-    {
-        //RCLCPP_INFO(this->get_logger(), "Pose callback triggered");
-        try{
-            geometry_msgs::msg::TransformStamped transform = tf_buffer_.lookupTransform("map", "odom", tf2::TimePointZero);
-            current_pose.position.x = msg->pose.pose.position.x + transform.transform.translation.x;
-            current_pose.position.y = msg->pose.pose.position.y + transform.transform.translation.y;
-            current_pose.orientation = msg->pose.pose.orientation;
-        }
-        catch (tf2::TransformException &ex) {
-            RCLCPP_WARN(this->get_logger(), "Could not transform base_link to map: %s", ex.what());
-        }
-        
-    }
+    rclcpp::Client<my_interfaces::srv::GetTurtlePose>::SharedPtr turtle_pose_client_;
 
     void goal_callback(const geometry_msgs::msg::PoseStamped::SharedPtr goal_msg)
     {
         RCLCPP_INFO(this->get_logger(), "Goal callback triggered");
-        goal_pose = goal_msg->pose; 
-        compute_and_publish_cmd_vel();
+
+        geometry_msgs::msg::TransformStamped transform_stamped = tf_buffer_.lookupTransform("odom", goal_msg->header.frame_id, tf2::TimePointZero);
+        geometry_msgs::msg::PoseStamped tranformed_goal_frame;
+        tf2::doTransform(*goal_msg, tranformed_goal_frame, transform_stamped);
+        
+        try
+        
+        goal_pose = tranformed_goal_frame.pose;
+
+        
     }
 
-    void compute_and_publish_cmd_vel()
+    void compute_and_publish_cmd_vel(const nav_msgs::msg::Odometry::SharedPtr msg)
     {
+        std::vector<std::pair<float, float>> other_robot_pose;
+
+        current_pose.position.x = msg->pose.pose.position.x;
+        current_pose.position.y = msg->pose.pose.position.y;
+        current_pose.orientation = msg->pose.pose.orientation;
+
         float x = current_pose.position.x;
         float y = current_pose.position.y;
         tf2::Quaternion q(
@@ -90,6 +97,7 @@ private:
             current_pose.orientation.y,
             current_pose.orientation.z,
             current_pose.orientation.w);
+        
         tf2::Matrix3x3 rpy(q);
         double roll, pitch, yaw;
         rpy.getRPY(roll, pitch, yaw);
@@ -98,28 +106,73 @@ private:
         float optimal_yaw_rate = 0.0;
         float v = this->get_parameter("v").as_double();
         float delta_t = this->get_parameter("delta_t").as_double();
-        
-        float min_distance = std::numeric_limits<float>::max();
 
-        for (float w = -2.0; w < 2.0; w += 0.1) {
+        auto request = std::make_shared<my_interfaces::srv::GetTurtlePose::Request>();
+        request->turtle_name = "turtle2";
+        
+
+        if (!turtle_pose_client_->wait_for_service(1s)) {
+            RCLCPP_WARN(this->get_logger(), "Service not available, skipping collision check.");
+        } else {
+            auto request = std::make_shared<my_interfaces::srv::GetTurtlePose::Request>();
+            request->turtle_name = "turtle2";
+        
+            // Call the service synchronously
+            try {
+                auto response = turtle_pose_client_->async_send_request(request).get();
+                x_other = response->x;
+                y_other = response->y;
+                //other_robot_pose.emplace_back(response->x, response->y); // Add the response to the vector
+            } catch (const std::exception &e) {
+                RCLCPP_ERROR(this->get_logger(), "Service call failed: %s", e.what());
+            }
+        }
+
+        
+        //auto other_robot_pose.emplace_back(request->x, request->y);
+        
+        float min_distance = 1000.0;
+        // (float w = -3.14; w < 3.14; w += 0.001)
+        for (float w = -1.0; w < 1.0; w += 0.001) {
             float x_pred = x + v*delta_t*cos(theta+w*delta_t/2);
             float y_pred = y + v*delta_t*sin(theta+w*delta_t/2);
             float distance = sqrt(pow(x_pred - goal_pose.position.x, 2) + pow(y_pred - goal_pose.position.y, 2));
             
-            float angle_to_goal = atan2(goal_pose.position.y - y_pred, goal_pose.position.x - x_pred);
-            float angle_diff = angle_to_goal - (theta );
-            angle_diff = atan2(sin(angle_diff), cos(angle_diff));
-            while (angle_diff > M_PI) angle_diff -= 2 * M_PI;
-            while (angle_diff < -M_PI) angle_diff += 2 * M_PI;
+            bool close_to_other = false;
+            for (const auto& [other_x, other_y] : other_robot_pose) {
+                float distance_to_other = sqrt(pow(x_pred - other_x, 2) + pow(y_pred - other_y, 2));
+                if(distance_to_other < 0.01){
+                    close_to_other = true;
+                    break;
+                }
+            }
+
+            if (close_to_other) {
+                continue; // Skip this yaw rate if too close to another robot
+            }
+
             if (distance < min_distance) {
                 min_distance = distance;
-                optimal_yaw_rate  = angle_diff / delta_t;;
+                optimal_yaw_rate  = w;
+                //optimal_yaw_rate  = w/delta_t;
+                //optimal_yaw_rate  = angle_diff / delta_t;
+                RCLCPP_INFO(this->get_logger(), "Optimal yaw rate updated: %f", optimal_yaw_rate);
             }
 
         }
+        RCLCPP_INFO(this->get_logger(), "Current goal_pose: x=%f, y=%f", goal_pose.position.x, goal_pose.position.y);
 
-
-        RCLCPP_INFO(this->get_logger(), "Optimal yaw rate: %f", optimal_yaw_rate);
+        
+        // if(goal_pose.position.x == 0 && goal_pose.position.y == 0){
+        //     geometry_msgs::msg::Twist cmd_vel_msg;
+        //     cmd_vel_msg.linear.x = 0.0;
+        //     cmd_vel_msg.angular.z = 0.0;
+        //     cmd_vel_publisher->publish(cmd_vel_msg);
+            
+        //     RCLCPP_INFO(this->get_logger(), "Goal is not set");
+        //     return;
+        // }
+        // else {
         if (min_distance < 0.1) {
             geometry_msgs::msg::Twist cmd_vel_msg;
             cmd_vel_msg.linear.x = 0.0;
@@ -129,12 +182,16 @@ private:
             RCLCPP_INFO(this->get_logger(), "Goal reached");
             return;
         }
+        else{
+            geometry_msgs::msg::Twist cmd_vel_msg;
+            cmd_vel_msg.linear.x = v;
+            cmd_vel_msg.angular.z = optimal_yaw_rate;
+            cmd_vel_publisher->publish(cmd_vel_msg);
+            RCLCPP_INFO(this->get_logger(), "Published cmd_vel: linear.x=%f, angular.z=%f", cmd_vel_msg.linear.x, cmd_vel_msg.angular.z);
+        }
+
+        //}
         
-        geometry_msgs::msg::Twist cmd_vel_msg;
-        cmd_vel_msg.linear.x = v;
-        cmd_vel_msg.angular.z = optimal_yaw_rate;
-        cmd_vel_publisher->publish(cmd_vel_msg);
-        RCLCPP_INFO(this->get_logger(), "Published cmd_vel: linear.x=%f, angular.z=%f", cmd_vel_msg.linear.x, cmd_vel_msg.angular.z);
     }
 };
 

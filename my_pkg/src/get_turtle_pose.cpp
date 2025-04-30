@@ -15,7 +15,7 @@ namespace my_pkg
 class Pose_Server : public rclcpp::Node
 {
 public:
-    Pose_Server(rclcpp::NodeOptions options) : Node("turtle_get_pose", options)
+    Pose_Server(rclcpp::NodeOptions options) : Node("get_turtle_pose", options)
     {
         // init whatever is needed for your node
         // init subscribers
@@ -31,8 +31,8 @@ public:
 
         turtle_pose_service_ = this->create_service<my_interfaces::srv::GetTurtlePose>(
             "get_turtle_pose", std::bind(&Pose_Server::get_turtle_poses, this, std::placeholders::_1, std::placeholders::_2));
-
-    }   
+        
+    }
   
 private:
     rclcpp::Service<my_interfaces::srv::GetTurtlePose>::SharedPtr turtle_pose_service_;
@@ -51,18 +51,12 @@ private:
         std::string turtle_name = request->turtle_name;
         if(turtle_poses_.find(turtle_name) != turtle_poses_.end())
         {
+
             const auto& pose = turtle_poses_[turtle_name];
             response->x = pose.x;
             response->y = pose.y;
             response->theta = pose.theta;
-            // response->success = true;
-            // response->message = "Pose retrieved successfully.";
         }
-        // else
-        // {
-        //     response->success = false;
-        //     response->message = "Turtle not found.";
-        // }
     }
 };
 
